@@ -1,7 +1,10 @@
 use std::fs;
 
 fn main() {
-    let contents = fs::read_to_string("input/sample").unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    let filename: &str = args.get(1).map(String::as_ref).unwrap_or("input/sample");
+
+    let contents = fs::read_to_string(filename).unwrap();
     let sum = sum_of_calibration_values(&contents);
     println!("The sum of the calibration values is {}", sum);
 }
@@ -17,17 +20,35 @@ fn parse_calibration_value(line: &str) -> u32 {
 }
 
 fn tokenize_digits(line: &str) -> Vec<char> {
-    line.replace("one", "1")
-        .replace("two", "2")
-        .replace("three", "3")
-        .replace("four", "4")
-        .replace("five", "5")
-        .replace("six", "6")
-        .replace("seven", "7")
-        .replace("eight", "8")
-        .replace("nine", "9")
-        .chars()
-        .filter(|c| c.is_ascii_digit())
+    (0..line.len())
+        .filter_map(|i| {
+            let substring = &line[i..];
+            let next_char = substring.chars().next().unwrap();
+
+            if next_char.is_ascii_digit() {
+                Some(next_char)
+            } else if substring.starts_with("one") {
+                Some('1')
+            } else if substring.starts_with("two") {
+                Some('2')
+            } else if substring.starts_with("three") {
+                Some('3')
+            } else if substring.starts_with("four") {
+                Some('4')
+            } else if substring.starts_with("five") {
+                Some('5')
+            } else if substring.starts_with("six") {
+                Some('6')
+            } else if substring.starts_with("seven") {
+                Some('7')
+            } else if substring.starts_with("eight") {
+                Some('8')
+            } else if substring.starts_with("nine") {
+                Some('9')
+            } else {
+                None
+            }
+        })
         .collect()
 }
 
