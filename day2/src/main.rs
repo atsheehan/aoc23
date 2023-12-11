@@ -7,6 +7,28 @@ fn main() {
     let contents = fs::read_to_string(filename).unwrap();
     let sum = sum_of_possible_game_ids(&contents);
     println!("The sum of the possible game IDs is {}", sum);
+
+    let power = power_of_fewest_cubes_per_color(&contents);
+    println!(
+        "The power of the fewest number of cubes of each color is {}",
+        power
+    );
+}
+
+fn power_of_fewest_cubes_per_color(contents: &str) -> u32 {
+    let games: Vec<Game> = parse_games(contents);
+
+    let min_cubes = games.iter().map(minimum_set_of_cubes);
+    let powers = min_cubes.map(|cubes| cubes.power());
+    powers.sum()
+}
+
+fn minimum_set_of_cubes(game: &Game) -> CubeCounts {
+    game.cube_draws
+        .iter()
+        .fold(CubeCounts::empty(), |current_minimum, new_cube_draw| {
+            current_minimum.max(new_cube_draw)
+        })
 }
 
 fn sum_of_possible_game_ids(input: &str) -> u32 {
@@ -48,6 +70,26 @@ struct CubeCounts {
 impl CubeCounts {
     fn is_subset_of(&self, other: &CubeCounts) -> bool {
         self.red <= other.red && self.green <= other.green && self.blue <= other.blue
+    }
+
+    fn empty() -> Self {
+        Self {
+            red: 0,
+            green: 0,
+            blue: 0,
+        }
+    }
+
+    fn power(&self) -> u32 {
+        self.red * self.green * self.blue
+    }
+
+    fn max(&self, other: &CubeCounts) -> Self {
+        Self {
+            red: self.red.max(other.red),
+            green: self.green.max(other.green),
+            blue: self.blue.max(other.blue),
+        }
     }
 }
 
@@ -139,5 +181,13 @@ mod tests {
             let actual = parse_game(input);
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn validate_sample_for_power_set_of_fewest_cubes() {
+        let contents = fs::read_to_string("input/sample").unwrap();
+
+        let power = power_of_fewest_cubes_per_color(&contents);
+        assert_eq!(power, 2286);
     }
 }
