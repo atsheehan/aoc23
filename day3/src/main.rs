@@ -1,5 +1,7 @@
-use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::hash::{Hash, Hasher};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -8,6 +10,9 @@ fn main() {
     let contents = fs::read_to_string(filename).unwrap();
     let sum = sum_of_part_numbers(&contents);
     println!("The sum of part numbers is {}", sum);
+
+    let sum = sum_of_gear_ratios(&contents);
+    println!("The sum of gear ratios is {}", sum);
 }
 
 fn sum_of_part_numbers(contents: &str) -> u32 {
@@ -26,6 +31,25 @@ fn sum_of_part_numbers(contents: &str) -> u32 {
         .iter()
         .filter_map(|token| part_number(token, &symbol_locations));
     part_numbers.sum()
+}
+
+fn sum_of_gear_ratios(contents: &str) -> u32 {
+    let tokens = parse_tokens(contents);
+
+    let mut number_locations: HashMap<Location, Token> = HashMap::new();
+    for token in tokens.iter() {
+        if token.is_number() {
+            for location in token.locations() {
+                number_locations.insert(location, *token);
+            }
+        }
+    }
+
+    let gears = tokens
+        .iter()
+        .filter_map(|token| gear(token, &number_locations));
+
+    gears.map(|g| g.ratio()).sum()
 }
 
 fn parse_tokens(contents: &str) -> Vec<Token> {
@@ -85,7 +109,47 @@ fn part_number(token: &Token, symbol_locations: &HashSet<Location>) -> Option<u3
     }
 }
 
-#[derive(Debug, PartialEq)]
+fn gear(token: &Token, number_locations: &HashMap<Location, Token>) -> Option<Gear> {
+    if let Some('*') = token.symbol() {
+        let surrounding_numbers = token
+            .surrounding_locations()
+            .filter_map(|l| number_locations.get(&l));
+        let mut deduped_part_numbers: HashMap<u64, u32> = HashMap::new();
+
+        for number_token in surrounding_numbers {
+            let mut hasher = DefaultHasher::new();
+            number_token.hash(&mut hasher);
+            let hashed_value = hasher.finish();
+
+            deduped_part_numbers.insert(hashed_value, number_token.number().unwrap());
+        }
+
+        if deduped_part_numbers.len() == 2 {
+            let mut values = deduped_part_numbers.values();
+            let adjacent_part_numbers = [*values.next().unwrap(), *values.next().unwrap()];
+
+            Some(Gear {
+                adjacent_part_numbers,
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+struct Gear {
+    adjacent_part_numbers: [u32; 2],
+}
+
+impl Gear {
+    fn ratio(&self) -> u32 {
+        self.adjacent_part_numbers[0] * self.adjacent_part_numbers[1]
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 struct Token {
     row: u32,
     col_start: u32,
@@ -96,6 +160,17 @@ struct Token {
 impl Token {
     fn is_symbol(&self) -> bool {
         matches!(self.value, TokenValue::Symbol(_))
+    }
+
+    fn is_number(&self) -> bool {
+        matches!(self.value, TokenValue::Number(_))
+    }
+
+    fn symbol(&self) -> Option<char> {
+        match self.value {
+            TokenValue::Symbol(s) => Some(s),
+            _ => None,
+        }
     }
 
     fn number(&self) -> Option<u32> {
@@ -123,7 +198,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
 enum TokenValue {
     Symbol(char),
     Number(u32),
@@ -145,6 +220,14 @@ mod tests {
 
         let sum = sum_of_part_numbers(&contents);
         assert_eq!(sum, 4361);
+    }
+
+    #[test]
+    fn validate_sample_for_sum_of_gear_ratios() {
+        let contents = fs::read_to_string("input/sample").unwrap();
+
+        let sum = sum_of_gear_ratios(&contents);
+        assert_eq!(sum, 467835);
     }
 
     #[test]
