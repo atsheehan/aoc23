@@ -1,4 +1,7 @@
-use std::{collections::HashSet, fs};
+use std::{
+    collections::{HashSet, VecDeque},
+    fs,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -7,11 +10,36 @@ fn main() {
     let contents = fs::read_to_string(filename).unwrap();
     let sum = sum_of_scratchcard_points(&contents);
     println!("The sum of scratchcard points is {}", sum);
+
+    let total = total_scratchcards(&contents);
+    println!("The total count of scratchcards is {}", total);
 }
 
 fn sum_of_scratchcard_points(contents: &str) -> u32 {
     let cards = parse_cards(contents);
     cards.iter().map(|c| c.points()).sum()
+}
+
+fn total_scratchcards(contents: &str) -> u32 {
+    let cards = parse_cards(contents);
+    let mut total_count = 0;
+
+    let mut remaining_card_indices = VecDeque::from((0..cards.len()).collect::<Vec<usize>>());
+
+    while let Some(card_index) = remaining_card_indices.pop_front() {
+        if let Some(card) = cards.get(card_index) {
+            total_count += 1;
+
+            let start = card_index + 1;
+            let end = start + card.winning_number_count();
+
+            for won_card_index in start..end {
+                remaining_card_indices.push_back(won_card_index);
+            }
+        }
+    }
+
+    total_count
 }
 
 fn parse_cards(contents: &str) -> Vec<Card> {
@@ -46,17 +74,20 @@ struct Card {
 
 impl Card {
     fn points(&self) -> u32 {
-        let num_matches = self
-            .actual_numbers
-            .iter()
-            .filter(|n| self.winning_numbers.contains(n))
-            .count();
+        let num_matches = self.winning_number_count();
 
         if num_matches == 0 {
             0
         } else {
             1 << (num_matches - 1)
         }
+    }
+
+    fn winning_number_count(&self) -> usize {
+        self.actual_numbers
+            .iter()
+            .filter(|n| self.winning_numbers.contains(n))
+            .count()
     }
 }
 
@@ -70,6 +101,14 @@ mod tests {
 
         let sum = sum_of_scratchcard_points(&contents);
         assert_eq!(sum, 13);
+    }
+
+    #[test]
+    fn validate_sample_for_total_scratchcards() {
+        let contents = fs::read_to_string("input/sample").unwrap();
+
+        let total = total_scratchcards(&contents);
+        assert_eq!(total, 30);
     }
 
     #[test]
